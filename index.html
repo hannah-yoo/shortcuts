@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f4f0" />
+    <title>knob. — 미니 키패드 스튜디오</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="knob 홈">
+          <span class="brand-mark"><span></span><span></span><span></span></span>
+          <span>knob<span class="brand-dot">.</span></span>
+        </a>
+        <div class="topbar-center"><span class="status-dot"></span><span id="save-status">이 브라우저에 저장됨</span></div>
+        <div class="topbar-actions">
+          <button class="button button-quiet" id="import-button" type="button">가져오기</button>
+          <button class="button button-dark" id="export-button" type="button"><span>내보내기</span><span aria-hidden="true">↗</span></button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden />
+        </div>
+      </header>
+
+      <main>
+        <section class="intro">
+          <div class="intro-copy">
+            <p class="eyebrow"><span class="eyebrow-line"></span> YOUR DESK, YOUR RULES</p>
+            <h1>작은 노브 하나로,<br /><span>반복을 더 빠르게.</span></h1>
+            <p class="intro-text">6개의 키와 노브에 나만의 단축키를 담아보세요.<br class="desktop-break" /> 세 가지 레이어로 작업에 맞춰 바꿔 쓸 수 있어요.</p>
+          </div>
+          <div class="intro-aside">
+            <span class="aside-index">01 — 03</span>
+            <span>MINI CONTROL<br />CONFIGURATOR</span>
+          </div>
+          <div class="intro-orbit orbit-one"></div>
+          <div class="intro-orbit orbit-two"></div>
+        </section>
+
+        <section class="workspace" aria-label="키패드 설정">
+          <aside class="device-column">
+            <div class="section-heading">
+              <div><p class="eyebrow">YOUR DEVICE</p><h2>미니 컨트롤러</h2></div>
+              <span class="device-count">01 KNOB · 06 KEYS</span>
+            </div>
+            <div class="device-stage">
+              <div class="device" aria-label="6키와 노브 컨트롤러 미리보기">
+                <div class="device-topline"><span>MINI PAD</span><span class="device-led"></span></div>
+                <div class="keys-grid" id="keys-grid"></div>
+                <div class="device-bottom">
+                  <button class="device-knob" id="knob-select" type="button" aria-label="노브 설정">
+                    <span class="knob-rim"><span class="knob-face"><span class="knob-notch"></span></span></span>
+                    <span class="knob-caption">ROTARY</span>
+                  </button>
+                  <div class="device-controls"><span></span><span></span><span class="usb-port"></span></div>
+                </div>
+                <div class="device-signature">C U S T O M&nbsp; C O N T R O L</div>
+              </div>
+              <div class="stage-shadow"></div>
+              <span class="stage-note">LAYOUT 01 <span>↗</span></span>
+            </div>
+            <div class="device-foot"><span>레이어에 따라 키 기능이 달라져요</span><span class="foot-spark">✳</span></div>
+          </aside>
+
+          <section class="editor-column">
+            <div class="editor-top">
+              <div class="section-heading">
+                <div><p class="eyebrow">CONFIGURATION</p><h2>키 매핑</h2></div>
+                <button class="reset-button" id="reset-layer" type="button" title="이 레이어 초기화">초기화 <span aria-hidden="true">↺</span></button>
+              </div>
+              <div class="layer-tabs" role="tablist" aria-label="레이어 선택">
+                <button class="layer-tab active" data-layer="0" role="tab" aria-selected="true"><span class="layer-letter">01</span><span class="layer-name">일상</span></button>
+                <button class="layer-tab" data-layer="1" role="tab" aria-selected="false"><span class="layer-letter">02</span><span class="layer-name">크리에이티브</span></button>
+                <button class="layer-tab" data-layer="2" role="tab" aria-selected="false"><span class="layer-letter">03</span><span class="layer-name">미디어</span></button>
+              </div>
+            </div>
+
+            <div class="editor-content">
+              <div class="selection-heading"><div><span class="selection-icon" id="selection-icon">01</span><div><p class="eyebrow" id="selection-type">KEY MAPPING</p><h3 id="selection-title">키 01</h3></div></div><span class="selection-hint" id="selection-hint">키를 선택해 기능을 설정하세요</span></div>
+              <div id="key-editor" class="key-editor">
+                <label class="field-label" for="action-type">실행할 동작</label>
+                <div class="select-wrap"><select id="action-type">
+                  <option value="shortcut">키보드 단축키</option>
+                  <option value="text">텍스트 입력</option>
+                  <option value="media">미디어 제어</option>
+                  <option value="disabled">사용 안 함</option>
+                </select><span aria-hidden="true">⌄</span></div>
+                <div id="action-fields"></div>
+                <p class="field-footnote"><span>↳</span> 단축키 표기는 Mac 기준이에요.</p>
+              </div>
+              <div id="knob-editor" class="knob-editor" hidden>
+                <div class="knob-sensitivity">
+                  <div class="sensitivity-label"><label class="field-label" for="sensitivity">노브 한 칸 이동량</label><span class="value-chip"><span id="sensitivity-value">3</span><span>×</span></span></div>
+                  <input id="sensitivity" type="range" min="1" max="10" value="3" />
+                  <div class="range-ends"><span>섬세하게</span><span>빠르게</span></div>
+                </div>
+                <div class="knob-actions">
+                  <div class="direction-field"><label class="field-label" for="clockwise">시계 방향 ↻</label><div class="select-wrap"><select id="clockwise"><option value="volumeUp">볼륨 높이기</option><option value="scrollDown">아래로 스크롤</option><option value="zoomIn">확대하기</option><option value="nextTrack">다음 트랙</option><option value="brightnessUp">밝기 높이기</option></select><span>⌄</span></div></div>
+                  <div class="direction-field"><label class="field-label" for="counterclockwise">반시계 방향 ↺</label><div class="select-wrap"><select id="counterclockwise"><option value="volumeDown">볼륨 낮추기</option><option value="scrollUp">위로 스크롤</option><option value="zoomOut">축소하기</option><option value="previousTrack">이전 트랙</option><option value="brightnessDown">밝기 낮추기</option></select><span>⌄</span></div></div>
+                </div>
+                <div class="press-field"><label class="field-label" for="knob-press">노브 누르기</label><div class="select-wrap"><select id="knob-press"><option value="playPause">재생 / 일시 정지</option><option value="mute">음소거</option><option value="none">사용 안 함</option></select><span>⌄</span></div></div>
+                <p class="field-footnote"><span>↳</span> 레이어마다 회전 기능과 이동량을 다르게 설정할 수 있어요.</p>
+              </div>
+              <div class="editor-divider"></div>
+              <div class="mapping-overview">
+                <div><span class="overview-mark"></span><span>이 레이어의 매핑</span></div>
+                <button class="text-button" id="show-all" type="button">모두 보기 <span>↗</span></button>
+              </div>
+              <div class="key-summary" id="key-summary"></div>
+            </div>
+          </section>
+        </section>
+
+        <section class="connection-card">
+          <div class="connection-icon"><span>⌁</span></div>
+          <div class="connection-copy"><p class="eyebrow">DEVICE CONNECTION</p><h2 id="connection-title">키패드와 연결하기</h2><p id="connection-message">Bluetooth 연결을 확인할 수 있어요. 매핑은 이 브라우저에 저장됩니다.</p></div>
+          <button class="button button-outline" id="connect-button" type="button"><span>Bluetooth 연결</span><span aria-hidden="true">↗</span></button>
+        </section>
+        <p class="connection-note"><span>ⓘ</span> 이 기기의 통신 규격을 알 수 없어, 현재는 실제 키패드에 설정을 전송하지 않습니다. 내보낸 JSON은 설정 백업용이에요.</p>
+      </main>
+
+      <footer class="footer"><a class="brand footer-brand" href="#"><span class="brand-mark"><span></span><span></span><span></span></span><span>knob<span class="brand-dot">.</span></span></a><span>MADE FOR YOUR FLOW&nbsp; ✳</span><a href="#top" id="top-link">BACK TO TOP ↑</a></footer>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
