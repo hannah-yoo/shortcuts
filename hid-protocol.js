@@ -113,6 +113,27 @@
     await device.sendReport(REPORT_ID, payload);
   }
 
+  async function initialize(device, timeoutMs = 3000) {
+    let timer;
+    let onReport;
+    const reply = new Promise((resolve) => {
+      onReport = (event) => {
+        if (event.reportId === REPORT_ID && event.data.byteLength >= 3 &&
+            event.data.getUint8(0) === 0xfb && event.data.getUint8(1) === 0 &&
+            event.data.getUint8(2) === 1) resolve(true);
+      };
+      device.addEventListener("inputreport", onReport);
+      timer = setTimeout(() => resolve(false), timeoutMs);
+    });
+    try {
+      await send(device, report([0xfb, 0xfb, 0xfb, 1]));
+      return await reply;
+    } finally {
+      clearTimeout(timer);
+      device.removeEventListener("inputreport", onReport);
+    }
+  }
+
   async function readLayer(device, layer) {
     if (!device.opened) throw new Error("기기 연결이 해제됐습니다.");
     const records = new Map();
@@ -150,7 +171,7 @@
     return done;
   }
 
-  const api = { REPORT_ID, report, binding, knobAction, matches, restoreBinding, isConfigDevice, readLayer, send };
+  const api = { REPORT_ID, report, binding, knobAction, matches, restoreBinding, isConfigDevice, initialize, readLayer, send };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.KnobProtocol = api;
 })(globalThis);

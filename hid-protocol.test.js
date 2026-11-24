@@ -58,3 +58,31 @@ test("reads only matching reports, snapshots bytes, and sends correct query", as
   assert.equal(records.get(3)[11], 6);
   assert.equal(handlers.size, 0);
 });
+
+test("initialization accepts a missing acknowledgement without claiming success", async () => {
+  let handler;
+  const device = {
+    addEventListener(name, fn) { handler = fn; },
+    removeEventListener() { handler = null; },
+    async sendReport(id, payload) {
+      assert.equal(id, 3);
+      assert.deepEqual([...payload.slice(0, 4)], [0xfb, 0xfb, 0xfb, 1]);
+    },
+  };
+  assert.equal(await protocol.initialize(device, 5), false);
+  assert.equal(handler, null);
+});
+
+test("initialization recognizes the expected acknowledgement", async () => {
+  let handler;
+  const device = {
+    addEventListener(name, fn) { handler = fn; },
+    removeEventListener() { handler = null; },
+    async sendReport() {
+      const bytes = Uint8Array.from([0xfb, 0, 1]);
+      handler({ reportId: 3, data: new DataView(bytes.buffer) });
+    },
+  };
+  assert.equal(await protocol.initialize(device, 50), true);
+  assert.equal(handler, null);
+});

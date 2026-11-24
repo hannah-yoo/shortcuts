@@ -413,27 +413,6 @@ function deviceError(error) {
   showToast(elements.connectionMessage.textContent);
 }
 
-async function initializeDevice(device) {
-  let timeout;
-  let onReport;
-  const reply = new Promise((resolve, reject) => {
-    onReport = (event) => {
-      if (event.reportId === KnobProtocol.REPORT_ID && event.data.byteLength >= 3 &&
-          event.data.getUint8(0) === 0xfb && event.data.getUint8(1) === 0 &&
-          event.data.getUint8(2) === 1) resolve();
-    };
-    device.addEventListener("inputreport", onReport);
-    timeout = setTimeout(() => reject(new Error("기기의 초기 응답이 없습니다. 이 기기와 프로토콜이 다를 수 있습니다.")), 3000);
-  });
-  try {
-    await KnobProtocol.send(device, KnobProtocol.report([0xfb, 0xfb, 0xfb, 1]));
-    await reply;
-  } finally {
-    clearTimeout(timeout);
-    device.removeEventListener("inputreport", onReport);
-  }
-}
-
 elements.connectButton.addEventListener("click", async () => {
   if (deviceBusy) return;
   if (connectedDevice?.opened) {
@@ -469,12 +448,14 @@ elements.connectButton.addEventListener("click", async () => {
     device = devices.find(KnobProtocol.isConfigDevice);
     if (!device) throw new Error("설정용 HID 인터페이스를 찾지 못했습니다. 호환되지 않는 기기일 수 있습니다.");
     await device.open();
-    await initializeDevice(device);
+    const acknowledged = await KnobProtocol.initialize(device);
     connectedDevice = device;
     deviceSnapshot = null;
     backupDownloaded = false;
     elements.connectionTitle.textContent = `${device.productName || "키패드"} USB 연결됨`;
-    elements.connectionMessage.textContent = "초기 응답 확인됨. 기기 읽기 후 원본 백업을 먼저 저장해 주세요.";
+    elements.connectionMessage.textContent = acknowledged
+      ? "초기 응답 확인됨. 기기 읽기 후 원본 백업을 먼저 저장해 주세요."
+      : "초기 응답을 확인하지 못했습니다. 기기 읽기로 호환성을 확인해 주세요. 읽기에 실패하면 기기에 적용할 수 없습니다.";
   } catch (error) {
     if (device?.opened && device !== connectedDevice) {
       try { await device.close(); } catch (closeError) { console.error("Could not close the HID device.", closeError); }
