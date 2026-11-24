@@ -65,6 +65,17 @@
               <span class="stage-note">LAYOUT 01 <span>↗</span></span>
             </div>
             <div class="device-foot"><span>레이어에 따라 키 기능이 달라져요</span><span class="foot-spark">✳</span></div>
+            <div class="key-test">
+              <button class="button button-dark" id="key-test-toggle" type="button" aria-expanded="false" aria-controls="key-test-panel">키 위치 확인 시작</button>
+              <div id="key-test-panel" hidden>
+                <p>먼저 화면의 키를 누른 다음, 실제 같은 위치의 키를 눌러 등록하세요. 등록 후에는 아래 입력칸을 선택하고 키를 누르면 표시됩니다.</p>
+                <label class="field-label" for="key-test-input">키 입력 확인</label>
+                <input id="key-test-input" type="text" readonly placeholder="여기를 선택하고 키를 누르세요" autocomplete="off" />
+                <p id="key-test-status" role="status" aria-live="polite">화면의 키를 선택해 위치를 등록하세요.</p>
+                <button class="text-button" id="key-test-clear" type="button">현재 레이어의 등록 초기화</button>
+                <p>일반 키보드 입력도 인식하며, 같은 입력을 내보내는 키는 구별할 수 없습니다. Tab, 일부 시스템 단축키·미디어 키는 확인할 수 없고, 시스템 단축키는 실행될 수 있습니다. 이 기능은 기기 내부 키 번호를 확인하거나 설정을 변경하지 않습니다.</p>
+              </div>
+            </div>
           </aside>
 
           <section class="editor-column">

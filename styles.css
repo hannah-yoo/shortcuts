@@ -51,13 +51,15 @@ h1 span { color: #889f5a; }
 .section-heading h2, .connection-copy h2 { margin: 0; font: 600 18px/1.3 "Manrope", "Apple SD Gothic Neo", sans-serif; letter-spacing: -.5px; }
 .device-count { color: #a1a39b; font: 9px "DM Mono", monospace; letter-spacing: .45px; }
 .device-stage { height: 390px; margin-top: 21px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border: 1px solid #e9e8e2; border-radius: 9px; background: radial-gradient(ellipse at 48% 48%, #eeeee7 0%, #f5f4f0 62%); }
-.device { width: 248px; height: 331px; position: relative; z-index: 1; display: flex; flex-direction: column; padding: 19px 19px 15px; border: 1px solid #454740; border-radius: 25px 25px 30px 30px; background: linear-gradient(147deg, #393b35 0%, #292b27 48%, #20221f 100%); box-shadow: 10px 15px 26px #25271e32, inset 1px 1px 1px #ffffff18, inset -2px -4px 5px #00000028; transform: perspective(750px) rotateX(3deg) rotateZ(-5deg); }
+.device { width: 248px; height: 331px; position: relative; z-index: 1; display: flex; flex-direction: column; padding: 19px 19px 15px; border: 1px solid #454740; border-radius: 25px 25px 30px 30px; background: linear-gradient(147deg, #393b35 0%, #292b27 48%, #20221f 100%); box-shadow: 10px 15px 26px #25271e32, inset 1px 1px 1px #ffffff18, inset -2px -4px 5px #00000028; transform: perspective(750px) rotateX(3deg) rotateZ(-5deg) rotate(180deg); }
 .device-topline { display: flex; justify-content: space-between; align-items: center; color: #8b8f82; font: 8px "DM Mono", monospace; letter-spacing: 1.3px; }
+.device-topline > span:first-child, .knob-caption, .device-signature { transform: rotate(180deg); }
 .device-led { width: 5px; height: 5px; background: #a5cd58; }
 .keys-grid { margin: 20px auto 0; width: 183px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 10px; }
-.keycap { height: 51px; position: relative; display: flex; align-items: center; justify-content: center; padding: 4px; border: 0; border-bottom: 4px solid #cbc9c0; border-radius: 9px; background: linear-gradient(155deg, #fff 0%, #e9e8e1 100%); box-shadow: 0 5px 8px #00000035, inset 0 1px #ffffff; color: #3e413b; cursor: pointer; font: 600 9px "DM Mono", monospace; transition: transform .16s, border-color .16s, background .16s; }
-.keycap:hover { transform: translateY(-2px); }
+.keycap { height: 51px; position: relative; display: flex; align-items: center; justify-content: center; padding: 4px; border: 0; border-bottom: 4px solid #cbc9c0; border-radius: 9px; background: linear-gradient(155deg, #fff 0%, #e9e8e1 100%); box-shadow: 0 5px 8px #00000035, inset 0 1px #ffffff; color: #3e413b; cursor: pointer; font: 600 9px "DM Mono", monospace; transform: rotate(180deg); transition: transform .16s, border-color .16s, background .16s; }
+.keycap:hover { transform: rotate(180deg) translateY(-2px); }
 .keycap.selected { border-bottom-color: #9cb961; background: linear-gradient(155deg, #fff 0%, #edf1e4 100%); box-shadow: 0 5px 8px #00000035, 0 0 0 2px #b6d681; }
+.keycap.detected { background: #c9ef77; box-shadow: 0 0 0 4px #91b849, 0 5px 8px #00000035; }
 .keycap .key-number { position: absolute; top: 5px; left: 7px; color: #a3a59f; font-size: 7px; }
 .keycap .key-name { max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-top: 5px; }
 .device-bottom { display: flex; align-items: center; justify-content: space-between; margin: auto 4px 0; }
@@ -76,6 +78,11 @@ h1 span { color: #889f5a; }
 .stage-note span { color: #8da74e; }
 .device-foot { display: flex; justify-content: space-between; padding: 12px 2px 0; color: #96988f; font-size: 10px; }
 .foot-spark { color: #96b557; font-size: 14px; }
+.key-test { margin-top: 12px; }
+.key-test p { color: #777a72; font-size: 11px; line-height: 1.6; }
+.key-test input { width: 100%; min-height: 40px; padding: 0 11px; border: 1px solid #d5d8ca; border-radius: 5px; background: #fff; }
+.key-test input:focus { outline: 2px solid #9cb961; outline-offset: 2px; }
+.key-test #key-test-status { color: #4a6623; }
 .editor-column { min-width: 0; }
 .reset-button { padding: 7px 0 7px 10px; border: 0; background: transparent; color: #92958b; font-size: 10px; cursor: pointer; }
 .reset-button:hover, .text-button:hover { color: #526a2e; }
@@ -175,7 +182,7 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
   .orbit-two { right: -170px; }
   .workspace { padding-top: 28px; gap: 27px; }
   .device-stage { height: 348px; }
-  .device { transform: perspective(750px) rotateX(3deg) rotateZ(-4deg) scale(.93); }
+  .device { transform: perspective(750px) rotateX(3deg) rotateZ(-4deg) scale(.93) rotate(180deg); }
   .section-heading h2 { font-size: 16px; }
   .device-count { font-size: 8px; }
   .layer-tabs { gap: 3px; padding: 4px; }

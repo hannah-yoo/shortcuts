@@ -1,4 +1,5 @@
 const STORAGE_KEY = "knob-studio-config-v1";
+const KEY_TEST_STORAGE_KEY = "knob-studio-key-test-v1";
 
 const KEY_NAMES = ["01", "02", "03", "04", "05", "06"];
 const LAYER_NAMES = ["일상", "크리에이티브", "미디어"];
@@ -73,6 +74,10 @@ let connectedDevice = null;
 let deviceSnapshot = null;
 let backupDownloaded = false;
 let deviceBusy = false;
+let keyTestMappings = loadKeyTestMappings();
+let keyTestActive = false;
+let keyTestPending = null;
+let keyTestTimer;
 
 const elements = {
   grid: document.querySelector("#keys-grid"),
@@ -101,6 +106,11 @@ const elements = {
   restoreButton: document.querySelector("#restore-button"),
   applyButton: document.querySelector("#apply-button"),
   knobTarget: document.querySelector("#knob-target"),
+  keyTestToggle: document.querySelector("#key-test-toggle"),
+  keyTestPanel: document.querySelector("#key-test-panel"),
+  keyTestInput: document.querySelector("#key-test-input"),
+  keyTestStatus: document.querySelector("#key-test-status"),
+  keyTestClear: document.querySelector("#key-test-clear"),
 };
 
 function clone(value) {
@@ -134,6 +144,32 @@ function loadConfig() {
     console.warn("Could not load the saved knob profile.", error);
   }
   return clone(DEFAULT_CONFIG);
+}
+
+function loadKeyTestMappings() {
+  const empty = () => Array.from({ length: 3 }, () => Array(6).fill(null));
+  try {
+    const saved = localStorage.getItem(KEY_TEST_STORAGE_KEY);
+    if (!saved) return empty();
+    const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed) && parsed.length === 3 && parsed.every((layer) =>
+      Array.isArray(layer) && layer.length === 6 &&
+      layer.every((value) => value === null || typeof value === "string"))) return parsed;
+    console.warn("The saved key test mappings are invalid.");
+  } catch (error) {
+    console.warn("Could not load the saved key test mappings.", error);
+  }
+  return empty();
+}
+
+function saveKeyTestMappings() {
+  try {
+    localStorage.setItem(KEY_TEST_STORAGE_KEY, JSON.stringify(keyTestMappings));
+    return true;
+  } catch (error) {
+    console.error("Could not save the key test mappings.", error);
+    return false;
+  }
 }
 
 function currentLayer() {
@@ -187,7 +223,15 @@ function renderKeys() {
     name.className = "key-name";
     name.textContent = keyDisplay(key);
     button.append(number, name);
-    button.addEventListener("click", () => selectKey(index));
+    button.addEventListener("click", () => {
+      if (!keyTestActive) {
+        selectKey(index);
+        return;
+      }
+      keyTestPending = index;
+      elements.keyTestStatus.textContent = `키 ${KEY_NAMES[index]} 위치의 실제 키를 눌러 등록하세요.`;
+      elements.keyTestInput.focus();
+    });
     elements.grid.append(button);
   });
   document.querySelector("#knob-select").classList.toggle("selected", selectedControl.type === "knob");
@@ -323,9 +367,74 @@ function exportConfig() {
 elements.layerTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     activeLayer = Number(tab.dataset.layer);
+    keyTestPending = null;
+    if (keyTestActive) elements.keyTestStatus.textContent = "이 레이어에서 화면의 키를 선택해 등록하거나 입력칸을 선택해 확인하세요.";
     selectedControl = { type: "key", index: 0 };
     render();
   });
+});
+
+elements.keyTestToggle.addEventListener("click", () => {
+  keyTestActive = !keyTestActive;
+  keyTestPending = null;
+  elements.keyTestPanel.hidden = !keyTestActive;
+  elements.keyTestToggle.setAttribute("aria-expanded", String(keyTestActive));
+  elements.keyTestToggle.textContent = keyTestActive ? "키 위치 확인 종료" : "키 위치 확인 시작";
+  if (keyTestActive) {
+    elements.keyTestStatus.textContent = "화면의 키를 선택해 위치를 등록하세요.";
+    elements.keyTestInput.focus();
+  }
+});
+
+elements.keyTestInput.addEventListener("keydown", (event) => {
+  if (!keyTestActive || event.isComposing) return;
+  if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
+  if (event.key === "Tab") {
+    elements.keyTestStatus.textContent = "Tab은 입력칸 이동에 사용되어 등록할 수 없습니다.";
+    return;
+  }
+  event.preventDefault();
+  if (event.repeat) return;
+  if (!event.code || event.code === "Unidentified") {
+    elements.keyTestStatus.textContent = "이 입력은 브라우저에서 구별할 수 없습니다.";
+    return;
+  }
+  const signature = JSON.stringify([event.code, event.ctrlKey, event.shiftKey, event.altKey, event.metaKey]);
+  const layer = keyTestMappings[activeLayer];
+  if (keyTestPending !== null) {
+    const duplicate = layer.findIndex((value, index) => value === signature && index !== keyTestPending);
+    if (duplicate !== -1) {
+      elements.keyTestStatus.textContent = `키 ${KEY_NAMES[duplicate]}에 이미 등록된 입력입니다. 같은 입력은 구별할 수 없습니다.`;
+      return;
+    }
+    const index = keyTestPending;
+    layer[index] = signature;
+    keyTestPending = null;
+    elements.keyTestStatus.textContent = saveKeyTestMappings()
+      ? `키 ${KEY_NAMES[index]} 위치를 등록했습니다. 다른 키를 등록하거나 입력칸에서 확인하세요.`
+      : `키 ${KEY_NAMES[index]} 위치를 임시 등록했지만 브라우저에 저장하지 못했습니다.`;
+  } else {
+    const index = layer.indexOf(signature);
+    if (index === -1) {
+      elements.keyTestStatus.textContent = "등록되지 않은 입력입니다. 화면의 키를 선택해 먼저 등록하세요.";
+      return;
+    }
+    elements.keyTestStatus.textContent = `등록된 키 ${KEY_NAMES[index]} 입력을 감지했습니다.`;
+    clearTimeout(keyTestTimer);
+    elements.grid.querySelectorAll(".detected").forEach((key) => key.classList.remove("detected"));
+    const key = elements.grid.children[index];
+    key.classList.add("detected");
+    keyTestTimer = setTimeout(() => key.classList.remove("detected"), 700);
+  }
+});
+
+elements.keyTestClear.addEventListener("click", () => {
+  if (!window.confirm("현재 레이어의 키 위치 등록을 모두 지울까요?")) return;
+  keyTestMappings[activeLayer].fill(null);
+  keyTestPending = null;
+  elements.keyTestStatus.textContent = saveKeyTestMappings()
+    ? "현재 레이어의 키 위치 등록을 지웠습니다."
+    : "등록을 지웠지만 브라우저에 저장하지 못했습니다.";
 });
 
 document.querySelector("#knob-select").addEventListener("click", () => {
