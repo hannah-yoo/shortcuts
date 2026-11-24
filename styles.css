@@ -139,6 +139,9 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
 .button-outline { flex: 0 0 auto; border: 1px solid #d9d9cf; background: #f8f7f3; color: #45483e; }
 .button-outline:hover { border-color: #b4c789; background: #fbfcf7; }
 .button-outline:disabled { cursor: wait; opacity: .6; transform: none; }
+.button-dark:disabled { cursor: not-allowed; opacity: .5; transform: none; }
+.connection-actions { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
+.knob-editor > .field-label { margin-top: 15px; }
 .connection-note { display: flex; gap: 7px; margin: 11px 0 0 3px; color: #9b9d95; font-size: 9px; line-height: 1.6; }
 .connection-note span { color: #a4b77a; }
 .footer { min-height: 83px; display: flex; align-items: center; justify-content: space-between; margin-top: 38px; border-top: 1px solid var(--line); color: #999b93; font: 8px "DM Mono", monospace; letter-spacing: .45px; }
@@ -185,7 +188,7 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
   .connection-icon { width: 35px; height: 35px; }
   .connection-copy { flex-basis: calc(100% - 50px); }
   .connection-copy > p:last-child { max-width: 310px; }
-  .connection-card .button { margin-left: 46px; }
+  .connection-actions { margin-left: 46px; justify-content: flex-start; }
   .footer { margin-top: 28px; }
   .footer > span { display: none; }
   .toast { right: 18px; bottom: 18px; }

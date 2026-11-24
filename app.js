@@ -70,6 +70,9 @@ let activeLayer = 0;
 let selectedControl = { type: "key", index: 0 };
 let toastTimer;
 let connectedDevice = null;
+let deviceSnapshot = null;
+let backupDownloaded = false;
+let deviceBusy = false;
 
 const elements = {
   grid: document.querySelector("#keys-grid"),
@@ -93,6 +96,11 @@ const elements = {
   connectButton: document.querySelector("#connect-button"),
   connectionTitle: document.querySelector("#connection-title"),
   connectionMessage: document.querySelector("#connection-message"),
+  readButton: document.querySelector("#read-button"),
+  backupButton: document.querySelector("#backup-button"),
+  restoreButton: document.querySelector("#restore-button"),
+  applyButton: document.querySelector("#apply-button"),
+  knobTarget: document.querySelector("#knob-target"),
 };
 
 function clone(value) {
@@ -389,50 +397,226 @@ document.querySelector("#top-link").addEventListener("click", (event) => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
-document.querySelector("#connect-button").addEventListener("click", async () => {
-  if (connectedDevice?.gatt?.connected) {
-    connectedDevice.gatt.disconnect();
-    connectedDevice = null;
-    elements.connectionTitle.textContent = "키패드와 연결하기";
-    elements.connectionMessage.textContent = "Bluetooth 연결을 확인할 수 있어요. 매핑은 이 브라우저에 저장됩니다.";
-    elements.connectButton.querySelector("span").textContent = "Bluetooth 연결";
-    return;
-  }
-  if (!("bluetooth" in navigator)) {
-    showToast("이 브라우저는 Web Bluetooth를 지원하지 않아요. Chrome을 사용해 주세요.");
-    return;
-  }
-  if (!window.isSecureContext) {
-    showToast("Bluetooth 연결에는 HTTPS 또는 localhost가 필요해요.");
-    return;
-  }
-  elements.connectButton.disabled = true;
-  elements.connectButton.querySelector("span").textContent = "기기 검색 중";
+function updateDeviceButtons() {
+  const connected = Boolean(connectedDevice?.opened);
+  elements.connectButton.disabled = deviceBusy;
+  elements.connectButton.textContent = connected ? "연결 해제" : "USB 연결";
+  elements.readButton.disabled = deviceBusy || !connected;
+  elements.backupButton.disabled = deviceBusy || !deviceSnapshot;
+  elements.restoreButton.disabled = deviceBusy || !connected || !deviceSnapshot;
+  elements.applyButton.disabled = deviceBusy || !connected || !deviceSnapshot || !backupDownloaded;
+}
+
+function deviceError(error) {
+  console.error("USB device operation failed.", error);
+  elements.connectionMessage.textContent = error.message || "USB 작업에 실패했습니다.";
+  showToast(elements.connectionMessage.textContent);
+}
+
+async function initializeDevice(device) {
+  let timeout;
+  let onReport;
+  const reply = new Promise((resolve, reject) => {
+    onReport = (event) => {
+      if (event.reportId === KnobProtocol.REPORT_ID && event.data.byteLength >= 3 &&
+          event.data.getUint8(0) === 0xfb && event.data.getUint8(1) === 0 &&
+          event.data.getUint8(2) === 1) resolve();
+    };
+    device.addEventListener("inputreport", onReport);
+    timeout = setTimeout(() => reject(new Error("기기의 초기 응답이 없습니다. 이 기기와 프로토콜이 다를 수 있습니다.")), 3000);
+  });
   try {
-    const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
-    if (!device.gatt) throw new Error("Selected device does not expose GATT.");
-    device.addEventListener("gattserverdisconnected", () => {
-      connectedDevice = null;
-      elements.connectionTitle.textContent = "키패드 연결이 해제됐어요";
-      elements.connectionMessage.textContent = "설정은 이 브라우저에 저장되어 있어요.";
-      elements.connectButton.querySelector("span").textContent = "다시 연결";
-    });
-    await device.gatt.connect();
-    connectedDevice = device;
-    elements.connectionTitle.textContent = `${device.name || "키패드"} 연결됨`;
-    elements.connectionMessage.textContent = "Bluetooth 연결을 확인했어요. 기기 설정 전송은 지원하지 않아요.";
-    elements.connectButton.querySelector("span").textContent = "연결 해제";
-  } catch (error) {
-    if (error.name !== "NotFoundError") {
-      console.error("Could not connect to the selected Bluetooth device.", error);
-      showToast("Bluetooth 연결에 실패했어요. 브라우저 권한과 기기 상태를 확인해 주세요.");
-    }
+    await KnobProtocol.send(device, KnobProtocol.report([0xfb, 0xfb, 0xfb, 1]));
+    await reply;
   } finally {
-    elements.connectButton.disabled = false;
-    if (elements.connectButton.querySelector("span").textContent === "기기 검색 중") {
-      elements.connectButton.querySelector("span").textContent = "Bluetooth 연결";
+    clearTimeout(timeout);
+    device.removeEventListener("inputreport", onReport);
+  }
+}
+
+elements.connectButton.addEventListener("click", async () => {
+  if (deviceBusy) return;
+  if (connectedDevice?.opened) {
+    deviceBusy = true;
+    updateDeviceButtons();
+    try {
+      await connectedDevice.close();
+      connectedDevice = null;
+      deviceSnapshot = null;
+      backupDownloaded = false;
+      elements.connectionTitle.textContent = "USB-C로 키패드 연결하기";
+      elements.connectionMessage.textContent = "연결을 해제했습니다. 편집 내용은 브라우저에 남아 있습니다.";
+    } catch (error) {
+      deviceError(error);
+    } finally {
+      deviceBusy = false;
+      updateDeviceButtons();
     }
+    return;
+  }
+  if (!window.isSecureContext || !navigator.hid) {
+    showToast("WebHID를 지원하는 Chrome 또는 Edge에서 HTTPS나 localhost로 열어 주세요.");
+    return;
+  }
+  deviceBusy = true;
+  updateDeviceButtons();
+  let device;
+  try {
+    const devices = await navigator.hid.requestDevice({
+      filters: [{ vendorId: 0x514c, productId: 0x8850, usagePage: 0xff00, usage: 1 }],
+    });
+    if (devices.length === 0) return;
+    device = devices.find(KnobProtocol.isConfigDevice);
+    if (!device) throw new Error("설정용 HID 인터페이스를 찾지 못했습니다. 호환되지 않는 기기일 수 있습니다.");
+    await device.open();
+    await initializeDevice(device);
+    connectedDevice = device;
+    deviceSnapshot = null;
+    backupDownloaded = false;
+    elements.connectionTitle.textContent = `${device.productName || "키패드"} USB 연결됨`;
+    elements.connectionMessage.textContent = "초기 응답 확인됨. 기기 읽기 후 원본 백업을 먼저 저장해 주세요.";
+  } catch (error) {
+    if (device?.opened && device !== connectedDevice) {
+      try { await device.close(); } catch (closeError) { console.error("Could not close the HID device.", closeError); }
+    }
+    deviceError(error);
+  } finally {
+    deviceBusy = false;
+    updateDeviceButtons();
+  }
+});
+
+if (navigator.hid) {
+  navigator.hid.addEventListener("disconnect", (event) => {
+    if (event.device !== connectedDevice) return;
+    connectedDevice = null;
+    deviceSnapshot = null;
+    backupDownloaded = false;
+    elements.connectionTitle.textContent = "USB 연결이 해제됐어요";
+    elements.connectionMessage.textContent = "기기 상태는 확인되지 않았습니다. 다시 연결하고 읽어 주세요.";
+    updateDeviceButtons();
+  });
+}
+
+elements.readButton.addEventListener("click", async () => {
+  if (deviceBusy || !connectedDevice?.opened) return;
+  deviceBusy = true;
+  deviceSnapshot = null;
+  backupDownloaded = false;
+  updateDeviceButtons();
+  try {
+    const layers = [];
+    for (let layer = 0; layer < 3; layer++) {
+      elements.connectionMessage.textContent = `기기의 레이어 ${layer + 1} 읽는 중…`;
+      layers.push(await KnobProtocol.readLayer(connectedDevice, layer));
+    }
+    deviceSnapshot = layers;
+    const count = layers.reduce((sum, records) => sum + records.size, 0);
+    elements.connectionMessage.textContent = `${count}개 원본 매핑을 읽었습니다. 원본 백업을 저장한 뒤 선택한 동작을 적용할 수 있어요.`;
+  } catch (error) {
+    deviceError(error);
+  } finally {
+    deviceBusy = false;
+    updateDeviceButtons();
+  }
+});
+
+elements.backupButton.addEventListener("click", () => {
+  if (!deviceSnapshot) return;
+  const backup = {
+    format: "knob-studio-hid-backup-v1",
+    vendorId: 0x514c,
+    productId: 0x8850,
+    layers: deviceSnapshot.map((records) => Object.fromEntries(
+      [...records].map(([id, bytes]) => [id, Array.from(bytes)])
+    )),
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "knob-device-original-reports.json";
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  backupDownloaded = true;
+  updateDeviceButtons();
+  elements.connectionMessage.textContent = "원본 보고서 백업 다운로드를 요청했어요. 파일 저장 여부를 확인한 후 적용해 주세요.";
+});
+
+function currentTarget() {
+  const target = selectedControl.type === "key" ? selectedControl.index + 1 :
+    { counterclockwise: 16, press: 17, clockwise: 18 }[elements.knobTarget.value];
+  const targetName = selectedControl.type === "key" ? `키 ${KEY_NAMES[selectedControl.index]}` :
+    { counterclockwise: "노브 반시계", press: "노브 누르기", clockwise: "노브 시계" }[elements.knobTarget.value];
+  return { target, targetName };
+}
+
+async function writeAndVerify(layer, target, targetName, payload) {
+  deviceBusy = true;
+  updateDeviceButtons();
+  try {
+    elements.connectionMessage.textContent = "선택한 동작을 전송하고 있습니다…";
+    await KnobProtocol.send(connectedDevice, payload);
+    await KnobProtocol.send(connectedDevice, KnobProtocol.report([0xfd, 0xfe, 0xff]));
+    const records = await KnobProtocol.readLayer(connectedDevice, layer);
+    if (!KnobProtocol.matches(payload, records.get(target))) {
+      throw new Error("전송 후 읽은 값이 일치하지 않습니다. 기기 설정이 일부 변경됐을 수 있으니 실제 동작을 확인해 주세요.");
+    }
+    elements.connectionMessage.textContent = `레이어 ${layer + 1} ${targetName}: 읽은 값이 전송값과 일치합니다. 실제 키 위치와 전원 재연결 후 유지 여부를 확인해 주세요.`;
+  } catch (error) {
+    deviceError(error);
+    deviceSnapshot = null;
+    backupDownloaded = false;
+    elements.connectionMessage.textContent += " 기기 설정이 변경됐을 수 있습니다. 다시 읽어 확인하세요.";
+  } finally {
+    deviceBusy = false;
+    updateDeviceButtons();
+  }
+}
+
+elements.applyButton.addEventListener("click", async () => {
+  if (deviceBusy || !connectedDevice?.opened || !deviceSnapshot || !backupDownloaded) return;
+  const layer = activeLayer;
+  const { target, targetName } = currentTarget();
+  if (!deviceSnapshot[layer].has(target)) {
+    showToast("이 동작의 원본 응답이 없어 적용하지 않습니다.");
+    return;
+  }
+  let payload;
+  try {
+    KnobProtocol.restoreBinding(layer, target, Array.from(deviceSnapshot[layer].get(target)));
+    const action = selectedControl.type === "key" ? currentLayer().keys[selectedControl.index] :
+      KnobProtocol.knobAction(currentLayer().knob[elements.knobTarget.value], currentLayer().knob.sensitivity);
+    payload = KnobProtocol.binding(layer, target, action);
+  } catch (error) {
+    deviceError(error);
+    return;
+  }
+  if (!window.confirm(`레이어 ${layer + 1}의 ${targetName} 하나를 기기에 기록합니다. 기존 동작이 바뀌며 기기별 위치가 다를 수 있습니다. 원본 백업 파일을 저장했나요?`)) return;
+  await writeAndVerify(layer, target, targetName, payload);
+});
+
+elements.restoreButton.addEventListener("click", () => document.querySelector("#restore-file").click());
+document.querySelector("#restore-file").addEventListener("change", async (event) => {
+  const [file] = event.target.files;
+  event.target.value = "";
+  if (!file || deviceBusy || !connectedDevice?.opened || !deviceSnapshot) return;
+  const layer = activeLayer;
+  const { target, targetName } = currentTarget();
+  try {
+    const backup = JSON.parse(await file.text());
+    if (backup.format !== "knob-studio-hid-backup-v1" || backup.vendorId !== 0x514c ||
+        backup.productId !== 0x8850 || !Array.isArray(backup.layers) || backup.layers.length !== 3 ||
+        !deviceSnapshot[layer].has(target)) {
+      throw new Error("기기 원본 백업이 아니거나 선택한 동작을 기기에서 읽지 못했습니다.");
+    }
+    const payload = KnobProtocol.restoreBinding(layer, target, backup.layers[layer]?.[target]);
+    if (!window.confirm(`레이어 ${layer + 1}의 ${targetName} 하나를 선택한 백업의 원본으로 덮어쓸까요?`)) return;
+    await writeAndVerify(layer, target, targetName, payload);
+  } catch (error) {
+    console.error("Could not restore the device backup.", error);
+    showToast(error.message || "백업 파일을 읽지 못했습니다.");
   }
 });
 
 render();
+updateDeviceButtons();

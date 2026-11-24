@@ -1,16 +1,21 @@
 # knob.
 
-A small browser-based configuration editor for a 6-key, 1-knob controller with three layers.
+6키, 1노브, 3레이어 키패드 설정 편집기입니다.
 
-## Run
+## 실행
 
-No build step or package installation is required. Preview `index.html` directly; for reliable browser storage and Bluetooth discovery, serve the site over HTTPS or `localhost` in a browser that supports Web Bluetooth, such as Chrome.
+Chrome 또는 Edge에서 `index.html`을 엽니다. WebHID는 보안 컨텍스트(HTTPS, localhost 또는 브라우저가 허용하는 로컬 파일)에서만 사용 가능합니다. 기기 설정은 데이터 전송이 가능한 USB-C 케이블로 연결해야 합니다. Bluetooth를 통한 설정 전송은 지원하지 않습니다.
 
-## Features
+## 기기에 적용
 
-- Configure six keys per layer with shortcuts, text, media actions, or no action.
-- Set each layer's knob direction actions, press action, and per-detent movement amount.
-- Save the profile in the current browser and import/export it as JSON.
-- Optionally check whether a Bluetooth GATT device can be selected and connected.
+**실험적 기능입니다.** `514c:8850` 기기 중에도 서로 다른 프로토콜이나 키 배치가 있습니다. 이 6키 모델에서의 호환성, 실제 키 번호와 노브 방향, 전원 재연결 후 보존 여부는 아직 검증되지 않았습니다.
 
-The controller's model and communication protocol are not known. Bluetooth is only used to check a connection; this editor does not write settings to the physical device. The exported JSON is a backup, not a device firmware profile.
+1. USB로 연결하고 **USB 연결**에서 기기를 선택합니다. 초기 응답이 없으면 진행하지 않습니다.
+2. **기기 읽기**로 세 레이어의 원본 보고서를 읽고 **원본 백업**을 눌러 JSON 파일이 저장됐는지 확인합니다. 일부 원본 형식은 복원하지 못할 수 있으므로 복구가 보장되지는 않습니다.
+3. 레이어와 키 또는 노브 동작 하나를 선택한 후 **선택 동작 적용**을 누릅니다. 원본 응답이 있는 동작만 기록하며, 나머지 동작을 일괄 덮어쓰지 않습니다.
+4. 전송 후 응답이 일치하는지 표시합니다. 일치하더라도 실제 물리적 키 동작과 USB를 분리하고 전원을 껐다 켠 뒤의 동작은 별도로 확인해야 합니다. 실패 시 일부 설정이 변경됐을 수 있습니다.
+5. 필요하면 해당 레이어와 동작을 선택하고 **선택 동작 복원**에서 원본 백업 파일을 선택해 복원합니다. 다른 동작은 변경하지 않습니다.
+
+웹 편집기 설정은 브라우저에 저장되며 상단 가져오기/내보내기는 그 편집 내용의 백업입니다. 기기에 저장된 값과 자동으로 동기화되지 않습니다. 단축키는 일반 키 하나와 조합 키를 지원하며, 텍스트 입력·사용 안 함 동작은 기기로 전송하지 않습니다. 노브 이동량은 스크롤 동작에만 적용됩니다. 하드웨어 자체 감도 조절 방법은 확인되지 않았습니다.
+
+HID 메시지 형식은 [knobctl 프로토콜 문서](https://github.com/ciiiii/knobctl/blob/master/docs/protocol.md)를 참고했습니다. 같은 USB ID라도 다른 형식을 사용하는 기기가 있으므로 안전한 호환성 증거로 취급하지 않습니다.
