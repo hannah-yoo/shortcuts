@@ -1,0 +1,7 @@
+{
+  "name": "shortcuts",
+  "version": "1.0.0",
+  "description": "A local shortcut editor for your Bluetooth knob",
+  "private": true,
+  "license": "MIT"
+}
